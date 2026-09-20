@@ -1,61 +1,63 @@
-import queue
-import threading
 from tkinter import *
-import descargas
-from GUI import Interfaz
-
-cola_progreso = queue.Queue()
-app = None  # Instancia global de la interfaz
+from tkinter import ttk
+import sv_ttk
 
 
-def monitorear_cola():
-    """Esta función corre EXCLUSIVAMENTE en el hilo principal de Tkinter."""
-    try:
-        while True:
-            mensaje, dato = cola_progreso.get_nowait()
+class Interfaz(Tk):
 
-            if mensaje == "PROGRESS":
-                app.estado["value"] = dato
+    def __init__(self, callback_boton):
+        super().__init__()
 
-            elif mensaje == "FIN":
-                app.estado["value"] = 100
-                app.lbl_estado.pack(pady=5)  # Muestra el label al terminar
+        self.title("Descargador de YouTube")
+        self.geometry("400x320")
 
-            elif mensaje == "ERROR":
-                app.estado["value"] = 0
+        # Aplicar el tema Sun Valley
+        sv_ttk.set_theme("light")
 
-            cola_progreso.task_done()
-    except queue.Empty:
-        pass
-    finally:
-        app.after(100, monitorear_cola)
+        # Configurar centrado en la ventana principal
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
 
+        # Marco contenedor
+        marco = ttk.LabelFrame(
+            self, text=" Descargar Video ", padding=(20, 15)
+        )
+        marco.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
 
-def boton():
-    url_user = app.entry_url.get()
-    res_user = app.opc_res.get()
+        # Etiqueta e Input URL
+        self.lbl_url = ttk.Label(
+            marco, text="Escribe la URL del video a descargar:"
+        )
+        self.lbl_url.pack(pady=5)
 
-    if not url_user:
-        return
+        self.entry_url = ttk.Entry(marco, width=32)
+        self.entry_url.pack(pady=5)
 
-    # Ocultar el mensaje anterior y reiniciar la barra si se hace otra descarga
-    app.lbl_estado.pack_forget()
-    app.estado["value"] = 0
+        # Selector de Resoluciones
+        resoluciones = (
+            "Mejor disponible",
+            "2160p",
+            "1080p",
+            "720p",
+            "480p",
+            "360p",
+            "240p",
+        )
+        self.opc_res = ttk.Combobox(
+            marco, values=resoluciones, state="readonly"
+        )
+        self.opc_res.current(0)
+        self.opc_res.pack(pady=5)
 
-    hilo = threading.Thread(
-        target=descargas.descargar_video,
-        args=(url_user, res_user, cola_progreso),
-        daemon=True,
-    )
-    hilo.start()
+        # Barra de progreso
+        self.estado = ttk.Progressbar(marco, orient=HORIZONTAL, length=250)
+        self.estado.pack(pady=8)
 
+        # Mensaje de finalización (inicialmente oculto)
+        self.lbl_estado = ttk.Label(marco, text="Descarga completa")
 
-def main():
-    global app
-    app = Interfaz(boton)
-    app.after(100, monitorear_cola)
-    app.mainloop()
-
-
-if __name__ == "__main__":
-    main()
+        # Botón de descarga
+        self.btn_descargar = ttk.Button(
+            marco, text="Descargar Video/Audio", command=callback_boton
+        )
+        self.btn_descargar.pack(pady=8)
