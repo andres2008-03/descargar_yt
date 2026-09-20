@@ -20,7 +20,7 @@ def monitorear_cola():
 
             elif mensaje == "FIN":
                 GUI.estado["value"] = 100  # Llenar la barra al completar
-
+                GUI.lbl_estado.pack(pady=8)
             elif mensaje == "ERROR":
                 GUI.estado["value"] = 0  # Reiniciar si falla
 
@@ -51,9 +51,7 @@ def boton():
 
 def main():
     app = GUI.crear_gui(boton)
-
-    
-    app.after(100,monitorear_cola())
+    app.after(100,monitorear_cola)
     app.mainloop()
 
 if __name__ == "__main__":

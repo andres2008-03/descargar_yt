@@ -1,35 +1,61 @@
+import queue
+import threading
 from tkinter import *
-from tkinter import ttk
-import time
-Ventana = None
-entry_url = None
-lbl_estado = None
-btn_descargar = None
-lbl_url = None
-resoluciones = None
-opc_res = None
-estado = None
-def crear_gui(boton):
-    global Ventana, entry_url, lbl_estado,btn_descargar, lbl_url,opc_res,resoluciones,estado 
-    Ventana = Tk()
-    Ventana.title("Descargador de youtube")
+import descargas
+from GUI import Interfaz
 
-    lbl_url = Label(Ventana,text="Escribe la url del video a descargar")
-    lbl_url.pack(pady=5)
-    #Seccion para introducir el url a descargar
-    entry_url = Entry(Ventana,width=30)
-    entry_url.pack(pady=5)
-
-    #seccion encargada de mostrar la lista de opciones del video
-    resoluciones = ("Mejor disponible","2160p","1080p",
-                    "720p","480p","360p","240p")
-    opc_res = ttk.Combobox(Ventana,values=resoluciones,state="readonly")
-    opc_res.pack(pady=5)
-
-    estado = ttk.Progressbar(Ventana,orient=HORIZONTAL,length=250)
-    estado.pack(pady=8)
+cola_progreso = queue.Queue()
+app = None  # Instancia global de la interfaz
 
 
-    btn_descargar = Button(Ventana,text="Descargar Video/Audio",command=boton)
-    btn_descargar.pack(pady=8)
-    return Ventana
+def monitorear_cola():
+    """Esta función corre EXCLUSIVAMENTE en el hilo principal de Tkinter."""
+    try:
+        while True:
+            mensaje, dato = cola_progreso.get_nowait()
+
+            if mensaje == "PROGRESS":
+                app.estado["value"] = dato
+
+            elif mensaje == "FIN":
+                app.estado["value"] = 100
+                app.lbl_estado.pack(pady=5)  # Muestra el label al terminar
+
+            elif mensaje == "ERROR":
+                app.estado["value"] = 0
+
+            cola_progreso.task_done()
+    except queue.Empty:
+        pass
+    finally:
+        app.after(100, monitorear_cola)
+
+
+def boton():
+    url_user = app.entry_url.get()
+    res_user = app.opc_res.get()
+
+    if not url_user:
+        return
+
+    # Ocultar el mensaje anterior y reiniciar la barra si se hace otra descarga
+    app.lbl_estado.pack_forget()
+    app.estado["value"] = 0
+
+    hilo = threading.Thread(
+        target=descargas.descargar_video,
+        args=(url_user, res_user, cola_progreso),
+        daemon=True,
+    )
+    hilo.start()
+
+
+def main():
+    global app
+    app = Interfaz(boton)
+    app.after(100, monitorear_cola)
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    main()
