@@ -1,46 +1,53 @@
+import queue
 import threading
 from tkinter import *
-import GUI
 import descargas
-import queue
+from GUI import Interfaz
 
+# Cola para conectar el hilo de descarga con la interfaz principal
 cola_progreso = queue.Queue()
+app = None  # Instancia global de la interfaz
 
 
 def monitorear_cola():
-    """Esta función corre EXCLUSIVAMENTE en el hilo principal de Tkinter."""
+    """Monitorea la cola de mensajes en el hilo principal de Tkinter."""
     try:
         while True:
-            # Revisa la cola sin bloquear la interfaz
             mensaje, dato = cola_progreso.get_nowait()
-            
-           # 1. ACTUALIZAR LA BARRA CON EL PORCENTAJE
+
             if mensaje == "PROGRESS":
-                GUI.estado["value"] = dato  # 'dato' es el flotante (ej. 45.2)
+                app.estado["value"] = dato
 
             elif mensaje == "FIN":
-                GUI.estado["value"] = 100  # Llenar la barra al completar
-                GUI.lbl_estado.pack(pady=8)
+                app.estado["value"] = 100
+                app.lbl_estado.pack(
+                    pady=5
+                )  # Muestra el mensaje de completado
+
             elif mensaje == "ERROR":
-                GUI.estado["value"] = 0  # Reiniciar si falla
+                app.estado["value"] = 0
 
             cola_progreso.task_done()
     except queue.Empty:
         pass
     finally:
-        # Programa la siguiente revisión cada 100 milisegundos en el hilo principal
-        GUI.Ventana.after(100, monitorear_cola)
+        # Revisa la cola cada 100ms
+        app.after(100, monitorear_cola)
 
 
 def boton():
-    url_user = GUI.entry_url.get()
-    res_user = GUI.opc_res.get()
+    """Función que se ejecuta al presionar el botón de descarga."""
+    url_user = app.entry_url.get()
+    res_user = app.opc_res.get()
 
-    # Validación básica para no lanzar descargas con la URL vacía
     if not url_user:
         return
 
-    # Crear e iniciar el hilo secundario
+    # Oculta el mensaje anterior y reinicia la barra si se hace otra descarga
+    app.lbl_estado.pack_forget()
+    app.estado["value"] = 0
+
+    # Inicia el hilo secundario para no congelar la GUI
     hilo = threading.Thread(
         target=descargas.descargar_video,
         args=(url_user, res_user, cola_progreso),
@@ -50,9 +57,16 @@ def boton():
 
 
 def main():
-    app = GUI.crear_gui(boton)
-    app.after(100,monitorear_cola)
+    global app
+    # Instancia la nueva clase de la GUI pasando el callback
+    app = Interfaz(boton)
+
+    # Inicia el monitoreo de la cola
+    app.after(100, monitorear_cola)
+
+    # Inicia el bucle principal
     app.mainloop()
+
 
 if __name__ == "__main__":
     main()
